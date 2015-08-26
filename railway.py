@@ -2,7 +2,14 @@
     formal terms, I'd be breaking each class into it's matching module. 
     Trying to keep it simple for now.
     """
-import sys
+
+import sys, os
+from itertools import tee, izip
+
+class NoSuchRoute(Exception):
+    pass
+class NoSuchStation(Exception):
+    pass
 
 class Station:
     """ Station is the local domain name of what is a vertex for our graph.
@@ -18,10 +25,17 @@ class Station:
         self.adjacent[neighbor] = dist
 
     def connections(self):
+        """ Returns station instances. """
         return self.adjacent.keys()
+    
+    def connection_names(self):
+        return [ station.stationname for station in self.connections() ]
 
     def distance_to(self, neighbor):
-        return self.adjacent[neighbor]
+        try:
+            return self.adjacent[neighbor]
+        except KeyError:
+            raise NoSuchStation("No Such Route")
 
     def set_distance(self, dist):
         self.distance = dist
@@ -51,7 +65,11 @@ class RailSystem:
         return new_station
 
     def get_station(self, n):
-        return self.station_dict.get(n)
+        try:
+            station = self.station_dict[n]
+        except KeyError:
+            raise NoSuchStation("No station matching name: %s" % n)
+        return station
 
     def add_rail(self, frm, to, dist = 0):
         if frm not in self.station_dict:
@@ -60,8 +78,6 @@ class RailSystem:
             self.add_station(to)
 
         self.station_dict[frm].add_neighbor(self.station_dict[to], dist)
-        # i think this creates a return route along any directed route.
-        # self.station_dict[to].add_neighbor(self.station_dict[frm], dist)
 
     def get_stations(self):
         return self.station_dict.keys()
@@ -72,37 +88,54 @@ class RailSystem:
     def get_previous(self, current):
         return self.previous
 
-    def distance_for_trip(self, stops=[]):
-        segments = trip_pairs_for_sequence(stops)
-        total_distance = 0
-        for segment in segments:
-            startname, targetname = segment
-            start = self.get_station(startname)
-            if not start:
-                print "We don't have a stop named" + str(startname)
-                return 0
-            target = self.get_station(targetname)
-            if not target:
-                print "We don't have a stop named" + str(targetname)
-                return 0
-            if target in start.connections():
-                distance = start.distance_to(target)
-                total_distance = total_distance + distance
-            else:
-                # print "There's no route between %s and %s" % segment
-                return 0
-        return total_distance
+    def _find_paths(self, path, max_stops=1):
+        if max_stops > 0:
+            yield path
+            station = self.get_station(path[-1])
+            for x in station.connection_names():
+                for p in self._find_paths(path + [x], max_stops - 1):
+                    yield p
 
-def trip_pairs_for_sequence(stops=[]):
-    pairs = []
-    stops_count = len(stops)
-    for s in stops:
-        sindex = stops.index(s)
-        if sindex+1 < stops_count:
-            pair = (s, stops[stops.index(s)+1])
-            if len(pair) == 2:
-                pairs.append( pair )
-    return pairs
+    def find_paths_from(self, stationname, max_stops):
+        return self._find_paths([stationname], max_stops)
+
+    def find_paths_from_to(self, startname, targetname, 
+                                 max_stops=2, max_distance=sys.maxint):
+        all_paths = self._find_paths([startname, targetname], max_stops)
+        matching_paths = {}
+        for path in all_paths:
+            if path[-1] == targetname:
+                matching_paths[self.distance_for_trip(path)] = path
+        return matching_paths
+
+    def station_pairs_for_trip(self, stationnames=[]):
+        namepairs = pairwise(stationnames)
+        for startname, targetname in namepairs:
+            try:
+                start = self.get_station(startname)
+                target = self.get_station(targetname)
+            except:
+                raise NoSuchStation()
+            yield (start, target)
+
+    def distance_for_trip(self, stops=[]):
+        distances=[]
+        segments = self.station_pairs_for_trip(stops)
+        for start, target in segments:
+            if target in start.connections():
+                distances.append(start.distance_to(target))
+        return sum(distances) 
+
+    def __str__(self):
+        s = ""
+        for station in self.station_dict.values():
+            s = s + str(station) + os.linesep
+        return s
+
+def pairwise(iterable):
+    a, b = tee(iterable)
+    next(b, None)
+    return izip(a, b)
 
 def shortest(station, path):
     ''' make shortest path from s.previous'''
@@ -110,47 +143,6 @@ def shortest(station, path):
         path.append(station.previous.stationname)
         shortest(station.previous, path)
     return
-
-import heapq
-
-def dijkstra(aRailSystem, start, target):
-    print '''Dijkstra's shortest path'''
-    # Set the distance for the start name to zero 
-    start.set_distance(0)
-
-    # Put tuple pair into the priority queue
-    unvisited_queue = [(s.distance,s) for s in aRailSystem]
-    heapq.heapify(unvisited_queue)
-
-    while len(unvisited_queue):
-        # Pops a station with the smallest distance 
-        uv = heapq.heappop(unvisited_queue)
-        current = uv[1]
-        current.set_visited()
-
-        #for next in s.adjacent:
-        for next in current.adjacent:
-            # if visited, skip
-            if next.visited:
-                continue
-            new_dist = current.distance + current.distance_to(next)
-            
-            if new_dist < next.distance:
-                next.set_distance(new_dist)
-                next.set_previous(current)
-                print 'updated : current = %s next = %s new_dist = %s' \
-                        %(current.stationname, next.stationname, next.distance)
-            else:
-                print 'not updated : current = %s next = %s new_dist = %s' \
-                        %(current.stationname, next.stationname, next.distance)
-
-        # Rebuild heap
-        # 1. Pop every item
-        while len(unvisited_queue):
-            heapq.heappop(unvisited_queue)
-        # 2. Put all stations not visited into the queue
-        unvisited_queue = [(s.distance,s) for s in aRailSystem if not s.visited]
-        heapq.heapify(unvisited_queue)
 
 def example_railsystem():
     railway = RailSystem()
@@ -177,12 +169,16 @@ def example_trips():
 
 def print_trip_distances(railway, trips=[]):
     for trip in trips:
-        distance = railway.distance_for_trip(trip)
+        print "Output #%d: " % (trips.index(trip)+1),
+        try:
+            distance = railway.distance_for_trip(trip)
+        except NoSuchStation, NoSuchRoute:
+            print "NO SUCH ROUTE"
+
         if distance:
             # print "Distance for %s : %d" % (str(trip), distance)
-            print "Output #%d: %d" % (trips.index(trip)+1, distance)
-        else:
-            print "Output #%d: NO SUCH ROUTE" % (trips.index(trip)+1)
+            print "%d" % (distance)
+        distance = 0
 
 def provided_example():
     railway = example_railsystem()
@@ -194,12 +190,6 @@ def provided_example():
             tstationname = t.stationname
             print '( %s , %s, %3d)'  % ( sstationname, tstationname, s.distance_to(t))
 
-    dijkstra(railway, railway.get_station('A'), railway.get_station('C')) 
-
-    target = railway.get_station('A')
-    path = [target.stationname]
-    shortest(target, path)
-    print 'The shortest path : %s' %(path[::-1])
     
 if __name__ == '__main__':
     railway = example_railsystem()
@@ -216,4 +206,12 @@ if __name__ == '__main__':
     shortest_a_to_c = path[::-1]
     print "Output #8: %s" % (str(shortest_a_to_c))
 
+    paths = list(railway.find_paths_from('C', 30))
+    # print paths
+    paths_to_c = []
+    for p in paths:
+        if len(p) < 31:
+            if p[-1] == 'C':
+                paths_to_c.append(p)
+    print "Output #9: %d" % ( len(paths_to_c) )
 
