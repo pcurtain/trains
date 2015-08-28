@@ -88,25 +88,62 @@ class RailSystem:
     def get_previous(self, current):
         return self.previous
 
-    def _find_paths(self, path, max_stops=1):
+    def distance_for_trip(self, stops=[]):
+        distances=[]
+        segments = self.station_pairs_for_trip(stops)
+        for start, target in segments:
+            if target in start.connections():
+                distances.append(start.distance_to(target))
+        return sum(distances) 
+
+    def _find_trips(self, trip, max_stops=0):
+        # import pdb; pdb.set_trace()
+        # print trip,
         if max_stops > 0:
-            yield path
-            station = self.get_station(path[-1])
-            for x in station.connection_names():
-                for p in self._find_paths(path + [x], max_stops - 1):
+            start = self.get_station(trip[0])
+            target = self.get_station(trip[-1])
+            # print "start: ", start, " target: ", target
+            if target in start.connections():
+                if target != start:
+                    yield trip
+            for x in target.connection_names():
+                for p in self._find_trips(trip + [x], max_stops - 1):
                     yield p
 
-    def find_paths_from(self, stationname, max_stops):
-        return self._find_paths([stationname], max_stops)
+    def find_trips_from(self, stationname, max_stops):
+        return self._find_trips([stationname], max_stops)
 
-    def find_paths_from_to(self, startname, targetname, 
-                                 max_stops=2, max_distance=sys.maxint):
-        all_paths = self._find_paths([startname, targetname], max_stops)
-        matching_paths = {}
-        for path in all_paths:
-            if path[-1] == targetname:
-                matching_paths[self.distance_for_trip(path)] = path
-        return matching_paths
+    def find_trips_from_to(self, startname, targetname, 
+                                 max_stops=30, 
+                                 max_distance=50):
+        all_trips = self._find_trips([startname, targetname], max_stops)
+        matching_trips = []
+        for trip in all_trips:
+            if trip[-1] == targetname:
+                matching_trips.append(trip)
+        return matching_trips
+
+    def trips_with_distance(self, trips):
+        """Assumes trips is a list of trip tuples containing strings."""
+        # TODO: Consider making Trip and Trips (or Itineraries) classes
+        distance_trips = { }
+        for t in trips:
+            distance = self.distance_for_trip(t)
+            distance_trips[distance] = t
+        return distance_trips
+        
+    def trips_ordered_by_distance(self, trips):
+        trips_dict = self.trips_with_distance(trips)
+        ordered_distance = sorted(trips_dict.keys())
+        for distance in ordered_distance:
+            print "( ", distance, trips_dict[distance], " )"
+            yield ( distance, trips_dict[distance] )
+
+    def shortest_from_to(self, startname, targetname):
+        import pdb; pdb.set_trace()
+        all_trips = self.find_trips_from_to(startname, targetname, 15)
+        ordered_trips = list( self.trips_ordered_by_distance(all_trips) )
+        return ordered_trips[0]
 
     def station_pairs_for_trip(self, stationnames=[]):
         namepairs = pairwise(stationnames)
@@ -116,15 +153,10 @@ class RailSystem:
                 target = self.get_station(targetname)
             except:
                 raise NoSuchStation()
-            yield (start, target)
-
-    def distance_for_trip(self, stops=[]):
-        distances=[]
-        segments = self.station_pairs_for_trip(stops)
-        for start, target in segments:
             if target in start.connections():
-                distances.append(start.distance_to(target))
-        return sum(distances) 
+                yield (start, target)
+            else:
+                pass
 
     def __str__(self):
         s = ""
@@ -137,11 +169,11 @@ def pairwise(iterable):
     next(b, None)
     return izip(a, b)
 
-def shortest(station, path):
-    ''' make shortest path from s.previous'''
+def shortest(station, trip):
+    ''' make shortest trip from s.previous'''
     if station.previous:
-        path.append(station.previous.stationname)
-        shortest(station.previous, path)
+        trip.append(station.previous.stationname)
+        shortest(station.previous, trip)
     return
 
 def example_railsystem():
@@ -200,18 +232,18 @@ if __name__ == '__main__':
 
     start = railway.get_station('A')
     target = railway.get_station('C')
-    path = [start.stationname, target.stationname]
-    shortest(target, path)
-    print path
-    shortest_a_to_c = path[::-1]
+    trip = [start.stationname, target.stationname]
+    shortest(target, trip)
+    print trip
+    shortest_a_to_c = trip[::-1]
     print "Output #8: %s" % (str(shortest_a_to_c))
 
-    paths = list(railway.find_paths_from('C', 30))
-    # print paths
-    paths_to_c = []
-    for p in paths:
-        if len(p) < 31:
-            if p[-1] == 'C':
-                paths_to_c.append(p)
-    print "Output #9: %d" % ( len(paths_to_c) )
+    trips = list(railway.find_trips_from('C', 30))
+    # print trips
+    trips_to_c = []
+    for t in trips:
+        if len(t) < 31:
+            if t[-1] == 'C':
+                trips_to_c.append(t)
+    print "Output #9: %d" % ( len(trips_to_c) )
 
