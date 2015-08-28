@@ -120,7 +120,10 @@ class RailSystem:
         matching_trips = []
         for trip in all_trips:
             if trip[-1] == targetname:
-                matching_trips.append(trip)
+                distance = self.distance_for_trip(trip)
+                stops = len( list(trip) )
+                if distance <= max_distance and stops <= max_stops:
+                    matching_trips.append(trip)
         return matching_trips
 
     def trips_with_distance(self, trips):
@@ -131,6 +134,10 @@ class RailSystem:
             distance = self.distance_for_trip(t)
             distance_trips[distance] = t
         return distance_trips
+
+    def trips_with_stops(self, startname, targetname, max_stops=4):
+        all_trips = self.find_trips_from_to(self, [startname, targetname], max_stops)
+        return all_trips
         
     def trips_ordered_by_distance(self, trips):
         trips_dict = self.trips_with_distance(trips)
