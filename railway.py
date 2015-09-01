@@ -1,7 +1,7 @@
-""" Railway module, to contain each of the obvious abstractions.  In more 
-    formal terms, I'd be breaking each class into it's matching module. 
-    Trying to keep it simple for now.
-    """
+"""Railway module, to contain each of the obvious abstractions.  In more 
+   formal terms, I'd be breaking each class into it's matching module. 
+   Trying to keep it simple for now.
+   """
 
 import sys, os
 from itertools import tee, izip
@@ -12,10 +12,9 @@ class NoSuchStation(Exception):
     pass
 
 class Station:
-    """ Station is the local domain name of what is a vertex for our graph.
-        """
+    """Station is the local domain name of what is a vertex for our graph."""
     def __init__(self, name):
-        self.stationname = name
+        self.name = name
         self.adjacent = {}
         self.distance = sys.maxint  # init to infinity
         self.visited = False
@@ -25,11 +24,11 @@ class Station:
         self.adjacent[neighbor] = dist
 
     def connections(self):
-        """ Returns station instances. """
+        """Returns station instances."""
         return self.adjacent.keys()
     
     def connection_names(self):
-        return [ station.stationname for station in self.connections() ]
+        return [station.name for station in self.connections()]
 
     def distance_to(self, neighbor):
         try:
@@ -37,18 +36,59 @@ class Station:
         except KeyError:
             raise NoSuchStation("No Such Route")
 
-    def set_distance(self, dist):
-        self.distance = dist
-
-    def set_previous(self, prev):
-        self.previous = prev
-
-    def set_visited(self):
-        self.visited = True
-
     def __str__(self):
-        return str(self.stationname) + \
-               ' adjacent: ' + str([x.stationname for x in self.adjacent])
+        return str(self.name) + \
+               ' adjacent: ' + str([x.name for x in self.adjacent])
+
+class TripStop:
+    def __init__(self, station):
+        """constructor requires a valid Station object. """
+        self.station = station
+        self.name = station.name
+        self.prevstop = None
+        self.nextstop = None
+        self.visited = False
+        self.first = False
+        self.last = False
+
+    def self.connections(self):
+        return self.station.connections()
+
+class Trip:
+    def __init__(self, stations=[], names=[]):
+        """construct a list of railway station stops using either names
+           or station objects."""
+        self.stops =  []
+        if stations:
+            for s in stations:
+                self.add_stop(s)
+        elif names:
+            for n in names:
+                self.add_stop_for_name(n)
+
+    def add_stop(self, station):
+        try:
+            stop = TripStop(station)
+            self.stops.append(stop)
+        except:
+            raise
+
+    def segments(self):
+        """return a list of pairs made of the steps of this trip."""
+        segments = pairwise(self.stops)
+        for start, target in segments:
+            if target in start.connections():
+                if start != target:
+                    start.nextstop = target
+                    target.prevstop = start
+                    yield (start, target)
+            else:
+                raise NoSuchRoute("No such route when checking trip.segments")
+
+    def distance(self):
+        distance = 0
+        for start, target in self.segments():
+            distance = distance + start.distance_to(target)
 
 class RailSystem:
     def __init__(self):
@@ -98,11 +138,11 @@ class RailSystem:
 
     def _find_trips(self, trip, max_stops=0):
         # import pdb; pdb.set_trace()
-        # print trip,
+        print trip,
         if max_stops > 0:
             start = self.get_station(trip[0])
             target = self.get_station(trip[-1])
-            # print "start: ", start, " target: ", target
+            print "start: ", start, " target: ", target
             if target in start.connections():
                 if target != start:
                     yield trip
@@ -110,8 +150,8 @@ class RailSystem:
                 for p in self._find_trips(trip + [x], max_stops - 1):
                     yield p
 
-    def find_trips_from(self, stationname, max_stops):
-        return self._find_trips([stationname], max_stops)
+    def find_trips_from(self, name, max_stops):
+        return self._find_trips([name], max_stops)
 
     def find_trips_from_to(self, startname, targetname, 
                                  max_stops=30, 
@@ -119,9 +159,10 @@ class RailSystem:
         all_trips = self._find_trips([startname, targetname], max_stops)
         matching_trips = []
         for trip in all_trips:
+            distance = self.distance_for_trip(trip)
+            stops = len( list(trip) )
+            print trip, distance, stops
             if trip[-1] == targetname:
-                distance = self.distance_for_trip(trip)
-                stops = len( list(trip) )
                 if distance <= max_distance and stops <= max_stops:
                     matching_trips.append(trip)
         return matching_trips
@@ -152,8 +193,8 @@ class RailSystem:
         ordered_trips = list( self.trips_ordered_by_distance(all_trips) )
         return ordered_trips[0]
 
-    def station_pairs_for_trip(self, stationnames=[]):
-        namepairs = pairwise(stationnames)
+    def station_pairs_for_trip(self, names=[]):
+        namepairs = pairwise(names)
         for startname, targetname in namepairs:
             try:
                 start = self.get_station(startname)
@@ -179,7 +220,7 @@ def pairwise(iterable):
 def shortest(station, trip):
     ''' make shortest trip from s.previous'''
     if station.previous:
-        trip.append(station.previous.stationname)
+        trip.append(station.previous.name)
         shortest(station.previous, trip)
     return
 
@@ -203,7 +244,7 @@ def example_trips():
      ['A', 'D'],
      ['A', 'D', 'C'],
      ['A', 'E', 'B', 'C', 'D'],
-     ['A', 'E', 'D']  ]
+     ['A', 'E', 'D'] ]
     return trips
 
 def print_trip_distances(railway, trips=[]):
@@ -225,9 +266,9 @@ def provided_example():
     print 'RailSystem data:'
     for s in railway:
         for t in s.connections():
-            sstationname = s.stationname
-            tstationname = t.stationname
-            print '( %s , %s, %3d)'  % ( sstationname, tstationname, s.distance_to(t))
+            sname = s.name
+            tname = t.name
+            print '( %s , %s, %3d)'  % ( sname, tname, s.distance_to(t))
 
     
 if __name__ == '__main__':
@@ -239,7 +280,7 @@ if __name__ == '__main__':
 
     start = railway.get_station('A')
     target = railway.get_station('C')
-    trip = [start.stationname, target.stationname]
+    trip = [start.name, target.name]
     shortest(target, trip)
     print trip
     shortest_a_to_c = trip[::-1]
