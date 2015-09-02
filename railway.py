@@ -119,18 +119,8 @@ class RailSystem:
     def __init__(self):
         self.stations_by_name = {}
 
-    def __iter__(self):
-        return iter(self.stations_by_name.values())
-
     def add_station(self, name):
         self.stations_by_name[name] = Station(name)
-
-    def get_station(self, n):
-        try:
-            station = self.stations_by_name[n]
-        except KeyError:
-            raise NoSuchStation("No station matching name: %s" % n)
-        return station
 
     def add_rail(self, frm, to, distance=0):
         if frm not in self.stations_by_name:
