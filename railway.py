@@ -171,9 +171,10 @@ class RailSystem:
         all_trip_names = self.find_trips_from(startname, max_depth, max_stops, max_distance)
         matching_trips = []
         for tripnames in all_trip_names:
-            trip = self.trip_for_stopnames(tripnames)
-            if trip.stops[-1].name == targetname:
-                matching_trips.append(trip)
+            if len(tripnames) > 1: # found that my algorithm includes a single match
+                trip = self.trip_for_stopnames(tripnames)
+                if trip.stops[-1].name == targetname:
+                    matching_trips.append(trip)
         return matching_trips
 
     def trips_with_distance(self, trips):
@@ -196,11 +197,10 @@ class RailSystem:
         trips_dict = self.trips_with_distance(trips)
         ordered_distance = sorted(trips_dict.keys())
         for distance in ordered_distance:
-            print "( ", distance, trips_dict[distance], " )"
-            yield ( distance, trips_dict[distance] )
+            yield trips_dict[distance]
 
     def shortest_from_to(self, startname, targetname):
-        all_trips = self.find_trips_from_to(startname, targetname, 15)
+        all_trips = self.find_trips_from_to(startname, targetname, max_depth=15)
         ordered_trips = list( self.trips_ordered_by_distance(all_trips) )
         return ordered_trips[0]
 
@@ -212,13 +212,6 @@ def pairwise(iterable):
     a, b = tee(iterable)
     next(b, None)
     return izip(a, b)
-
-def shortest(station, trip):
-    """make shortest trip from s.previous"""
-    if station.previous:
-        trip.append(station.previous.name)
-        shortest(station.previous, trip)
-    return
 
 def example_railsystem():
     railway = RailSystem()
@@ -259,33 +252,26 @@ def print_trip_distances(railway, trips=[]):
         distance = 0
 
 def print_trip_stops(railway):
+    trips = railway.find_trips_from_to('C', 'C', max_stops=4)
+    print "Output #6:  %d" % len( list(trips) )
     trips = railway.trips_with_stops('A', 'C', 4)
-    print trips
+    print "Output #7:  %d" % len( list(trips) )
+
+def print_shortest_trips(railway):
+    a_to_c = railway.shortest_from_to('A', 'C')
+    print "Output #8:  %d" % a_to_c.distance()
+    b_to_b = railway.shortest_from_to('B', 'B')
+    print "Output #9:  %d" % b_to_b.distance()
+    
+def print_distance_trips(railway):
+    trips = railway.find_trips_from_to('C', 'C', max_distance=30-1)
+    print "Output #10: %d" % len( list(trips) )
 
     
 if __name__ == '__main__':
     railway = example_railsystem()
-    print railway
     trips = example_trips()
     print_trip_distances(railway, trips)
     print_trip_stops(railway)
-    print "Output #6"
-    print "Output #7"
-
-    # start = railway.get_station('A')
-    # target = railway.get_station('C')
-    # trip = [start.name, target.name]
-    # shortest(target, trip)
-    # print trip
-    # shortest_a_to_c = trip[::-1]
-    # print "Output #8: %s" % (str(shortest_a_to_c))
-
-    trips = list(railway.find_trips_from('C', 30))
-    # print trips
-    trips_to_c = []
-    for t in trips:
-        if len(t) < 31:
-            if t[-1] == 'C':
-                trips_to_c.append(t)
-    print "Output #9: %d" % ( len(trips_to_c) )
-
+    print_shortest_trips(railway)
+    print_distance_trips(railway)
