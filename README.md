@@ -1,6 +1,6 @@
 Hello ThoughtWorks Reviewers!!
 
-tl;dr:   Loved learning about graphs.  Run with '''python trainsproblem.py'''
+tl;dr:   Loved learning about graphs.  Run with ```python trainsproblem.py```
 
 I just re-read the assignment email and saw the request for "design and
 assumptions, along with your code, as well as detailed instructions to run your
