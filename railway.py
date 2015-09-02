@@ -15,34 +15,34 @@ class Station:
     """Station is the local domain name of what is a vertex for our graph."""
     def __init__(self, name):
         self.name = name
-        self.adjacent = {}
+        self.distances_by_station = {}
         self.distance = sys.maxint  # init to infinity
-        self.visited = False
-        self.previous = None
 
-    def add_neighbor(self, neighbor, dist=0):
-        self.adjacent[neighbor] = dist
+    def add_connection(self, connection, dist=0):
+        self.distances_by_station[connection] = dist
 
     def connections(self):
         """Returns station instances."""
-        return self.adjacent.keys()
+        return self.distances_by_station.keys()
     
     def connection_names(self):
         return [station.name for station in self.connections()]
 
-    def distance_to(self, neighbor):
+    def distance_to(self, connection):
         try:
-            return self.adjacent[neighbor]
+            return self.distances_by_station[connection]
         except KeyError:
             raise NoSuchStation("No Such Route")
 
     def __str__(self):
-        return str(self.name) + \
-               ' adjacent: ' + str([x.name for x in self.adjacent])
+        return ('<' + str(self.name) + 
+                ' distances_by_station: ' + 
+                str([x.name for x in self.distances_by_station]) +
+                '>')
 
 class TripStop:
     def __init__(self, station):
-        """constructor requires a valid Station object. """
+        """constructor requires a valid Station object."""
         self.station = station
         self.name = station.name
         self.prevstop = None
@@ -51,90 +51,92 @@ class TripStop:
         self.first = False
         self.last = False
 
-    def self.connections(self):
+    def connections(self):
         return self.station.connections()
 
+    def connection_names(self):
+        return [s.name for s in self.connections()]
+
 class Trip:
-    def __init__(self, stations=[], names=[]):
-        """construct a list of railway station stops using either names
-           or station objects."""
+    def __init__(self, stations=[]):
+        """construct a list of railway station stops using station objects."""
         self.stops =  []
         if stations:
             for s in stations:
                 self.add_stop(s)
-        elif names:
-            for n in names:
-                self.add_stop_for_name(n)
+        for s in self.stops:
+            stopindex = self.stops.index(s)
+            if stopindex == 0:
+                s.first = True
+            elif stopindex == (len(self.stops)-1):
+                s.last = True
 
     def add_stop(self, station):
-        try:
-            stop = TripStop(station)
-            self.stops.append(stop)
-        except:
-            raise
+        self.stops.append(TripStop(station))
 
     def segments(self):
         """return a list of pairs made of the steps of this trip."""
-        segments = pairwise(self.stops)
+        segments = pairwise(self.stops)     # bring that code inline maybe
         for start, target in segments:
-            if target in start.connections():
+            print "``````````````"
+            print "segment: ", start.name, target.name
+            print "start:   ", start, " target: ", target
+            print "start.connections: ", start.connection_names()
+            print "start.connections: ", start.connections()
+            print "target: ", target.station
+            if target.name in start.connection_names():
                 if start != target:
                     start.nextstop = target
                     target.prevstop = start
                     yield (start, target)
             else:
+
                 raise NoSuchRoute("No such route when checking trip.segments")
+            print "``````````````"
 
     def distance(self):
-        distance = 0
+        distances=[]
         for start, target in self.segments():
-            distance = distance + start.distance_to(target)
+            distances.append(start.distance_to(target))
+        return sum(distances) 
 
 class RailSystem:
     def __init__(self):
-        self.station_dict = {}
-        self.num_stations = 0
+        self.stations_by_name = {}
 
     def __iter__(self):
-        return iter(self.station_dict.values())
+        return iter(self.stations_by_name.values())
 
     def add_station(self, name):
-        self.num_stations = self.num_stations + 1
-        new_station = Station(name)
-        self.station_dict[name] = new_station
-        return new_station
+        self.stations_by_name[name] = Station(name)
 
     def get_station(self, n):
         try:
-            station = self.station_dict[n]
+            station = self.stations_by_name[n]
         except KeyError:
             raise NoSuchStation("No station matching name: %s" % n)
         return station
 
-    def add_rail(self, frm, to, dist = 0):
-        if frm not in self.station_dict:
+    def add_rail(self, frm, to, distance=0):
+        if frm not in self.stations_by_name:
             self.add_station(frm)
-        if to not in self.station_dict:
+        if to not in self.stations_by_name:
             self.add_station(to)
+        self.stations_by_name[frm].add_connection(self.stations_by_name[to], distance)
 
-        self.station_dict[frm].add_neighbor(self.station_dict[to], dist)
+    def get_station_names(self):
+        return self.stations_by_name.keys()
 
-    def get_stations(self):
-        return self.station_dict.keys()
+    def stations_for_names(self, names=[]):
+        return [self.stations_by_name[name] for name in names]
 
-    def set_previous(self, current):
-        self.previous = current
+    def distance_for_trip(self, stopnames=[]):
+        # print "stopnames: ", stopnames
+        matching_stations = self.stations_for_names(stopnames)
+        # print "stations:  ", matching_stations
 
-    def get_previous(self, current):
-        return self.previous
-
-    def distance_for_trip(self, stops=[]):
-        distances=[]
-        segments = self.station_pairs_for_trip(stops)
-        for start, target in segments:
-            if target in start.connections():
-                distances.append(start.distance_to(target))
-        return sum(distances) 
+        trip = Trip(matching_stations)
+        return trip.distance()
 
     def _find_trips(self, trip, max_stops=0):
         # import pdb; pdb.set_trace()
@@ -207,10 +209,10 @@ class RailSystem:
                 pass
 
     def __str__(self):
-        s = ""
-        for station in self.station_dict.values():
-            s = s + str(station) + os.linesep
-        return s
+        s = "<"
+        for station in self.stations_by_name.values():
+            s = s + str(station) + ", "
+        return s+">"
 
 def pairwise(iterable):
     a, b = tee(iterable)
@@ -218,7 +220,7 @@ def pairwise(iterable):
     return izip(a, b)
 
 def shortest(station, trip):
-    ''' make shortest trip from s.previous'''
+    """make shortest trip from s.previous"""
     if station.previous:
         trip.append(station.previous.name)
         shortest(station.previous, trip)
@@ -273,18 +275,19 @@ def provided_example():
     
 if __name__ == '__main__':
     railway = example_railsystem()
+    print railway
     trips = example_trips()
     print_trip_distances(railway, trips)
     print "Output #6"
     print "Output #7"
 
-    start = railway.get_station('A')
-    target = railway.get_station('C')
-    trip = [start.name, target.name]
-    shortest(target, trip)
-    print trip
-    shortest_a_to_c = trip[::-1]
-    print "Output #8: %s" % (str(shortest_a_to_c))
+    # start = railway.get_station('A')
+    # target = railway.get_station('C')
+    # trip = [start.name, target.name]
+    # shortest(target, trip)
+    # print trip
+    # shortest_a_to_c = trip[::-1]
+    # print "Output #8: %s" % (str(shortest_a_to_c))
 
     trips = list(railway.find_trips_from('C', 30))
     # print trips
