@@ -1,6 +1,12 @@
 """Railway module, to contain each of the obvious abstractions.  In more 
    formal terms, I'd be breaking each class into it's matching module. 
    Trying to keep it simple for now.
+
+   To run the ThoughtWorks problems, I provided two options:
+   1. To get the 'expected outputs', run:
+      `python problems.py`
+   2. To read and validate using unit tests, run:
+      `python -m unittest trainstest`
    """
 
 import sys
@@ -193,66 +199,3 @@ class RailSystem:
     def __str__(self):
         station_strings = ", ".join([str(station) for station in self.stations_by_name.values()])
         return str("<Railway: " + station_strings + ">")
-
-def example_railsystem():
-    railway = RailSystem()
-    # Graph: AB5, BC4, CD8, DC8, DE6, AD5, CE2, EB3, AE7
-    railway.add_rail('A', 'B', 5)  
-    railway.add_rail('B', 'C', 4)
-    railway.add_rail('C', 'D', 8)
-    railway.add_rail('D', 'C', 8)
-    railway.add_rail('D', 'E', 6)
-    railway.add_rail('A', 'D', 5)
-    railway.add_rail('C', 'E', 2)
-    railway.add_rail('E', 'B', 3)
-    railway.add_rail('A', 'E', 7)
-    return railway
-
-def example_trips():
-    trips = [
-     ['A', 'B', 'C'],
-     ['A', 'D'],
-     ['A', 'D', 'C'],
-     ['A', 'E', 'B', 'C', 'D'],
-     ['A', 'E', 'D'] ]
-    return trips
-
-def print_trip_distances(railway, trips=[]):
-    for trip in trips:
-        print "Output #%d: " % (trips.index(trip)+1),
-        try:
-            distance = railway.distance_for_trip(trip)
-        except NoSuchStation:
-            print "Surprise!"
-        except NoSuchRoute:
-            print "NO SUCH ROUTE"
-
-        if distance:
-            # print "Distance for %s : %d" % (str(trip), distance)
-            print "%d" % (distance)
-        distance = 0
-
-def print_trip_stops(railway):
-    trips = railway.find_trips_from_to('C', 'C', max_stops=4)
-    print "Output #6:  %d" % len( list(trips) )
-    trips = railway.trips_with_stops('A', 'C', 4)
-    print "Output #7:  %d" % len( list(trips) )
-
-def print_shortest_trips(railway):
-    a_to_c = railway.shortest_from_to('A', 'C')
-    print "Output #8:  %d" % a_to_c.distance()
-    b_to_b = railway.shortest_from_to('B', 'B')
-    print "Output #9:  %d" % b_to_b.distance()
-    
-def print_distance_trips(railway):
-    trips = railway.find_trips_from_to('C', 'C', max_distance=30-1)
-    print "Output #10: %d" % len( list(trips) )
-
-    
-if __name__ == '__main__':
-    railway = example_railsystem()
-    trips = example_trips()
-    print_trip_distances(railway, trips)
-    print_trip_stops(railway)
-    print_shortest_trips(railway)
-    print_distance_trips(railway)
