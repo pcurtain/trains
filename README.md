@@ -1,6 +1,6 @@
 Hello ThoughtWorks Reviewers!!
 
-tl;dr:   Loved learning about graphs.  Run with ```python trainsproblem.py```
+tl;dr:   Loved learning about graphs.  Run with '''python trainsproblem.py'''
 
 I just re-read the assignment email and saw the request for "design and
 assumptions, along with your code, as well as detailed instructions to run your
@@ -29,7 +29,10 @@ I try to think things through via tests that match user story elements.
 
 In this case I just brought the problem test terms into a test module. So my
 ideal path for the reviewer would be to read through the tests and, when clear,
-run the unit tests with verbose output (```python -m unittest -v trainstest```)
+run the unit tests with verbose output
+'''
+python -m unittest -v trainstest
+'''
 and that should be pretty clear.
 
 To get precisely the output specified in the problem station, run 
