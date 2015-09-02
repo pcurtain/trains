@@ -100,6 +100,17 @@ class Trip:
         """Given the last stop in this trip, return candidate stop names."""
         return self.stops[-1].connection_names()
 
+    def stop_names(self):
+        """Simple characters as expected by the ThoughtWorks problem."""
+        return "-".join([s.name for s in self.stops])
+
+    def __str__(self):
+        return ('<' + 
+                str([s.name for s in self.stops]) +
+                ' stops: ' + str(self.stops_count()) + 
+                ' distance: ' + str(self.distance()) +
+                '>')
+
 class RailSystem:
     def __init__(self):
         self.stations_by_name = {}
@@ -145,24 +156,26 @@ class RailSystem:
             trip = self.trip_for_stopnames(tripnames)
             for x in trip.candidate_stop_names():
                 for p in self._find_all_trips(tripnames + [x], max_depth - 1):
-                    # newtrip = self.trip_for_stopnames(p)
-                    # if (newtrip.distance() <= max_distance) and (newtrip.stops_count()+1 <= max_stops):
-                    yield p
+                    newtrip = self.trip_for_stopnames(p)
+                    if (newtrip.distance() <= max_distance) and (newtrip.stops_count()+1 <= max_stops):
+                        yield p
 
-    def find_trips_from(self, name, max_depth=30, max_stops=30, max_distance=50):
-        print "find_trips_from(%s, %d, %d, %d)" % (name, max_depth, max_stops, max_distance) 
-        return self._find_all_trips([name], max_depth, max_stops, max_distance)
+    def find_trips_from(self, name, max_depth=10, max_stops=30, max_distance=50):
+        all_trip_names = self._find_all_trips([name], max_depth, max_stops, max_distance)
+        # return self.trip_for_stopnames(all_trip_names)
+        return all_trip_names
 
     def find_trips_from_to(self, startname, targetname, max_depth=30, max_stops=30, max_distance=50):
         print "find_trips_from_to(%s, %s, %d, %d, %d)" % (startname, targetname,max_depth, max_stops, max_distance) 
-        # xall_trips = self.find_trips_from(startname, max_depth, max_stops, max_distance)
-        xall_trips = self._find_all_trips([startname], max_depth, max_stops, max_distance)
-        return xall_trips
-        # matching_trips = []
-        # for tripnames in all_trips:
-        #     if tripnames[-1] == targetname:
-        #         matching_trips.append(self.trip_for_stopnames(tripnames))
-        # return matching_trips
+        all_trip_names = self.find_trips_from(startname, max_depth, max_stops, max_distance)
+        matching_trips = []
+        for tripnames in all_trip_names:
+            # if tripnames[-1] == targetname:
+            #     matching_trips.append(tripnames)
+            trip = self.trip_for_stopnames(tripnames)
+            if trip.stops[-1].name == targetname:
+                matching_trips.append(trip)
+        return matching_trips
 
     def trips_with_distance(self, trips):
         """Assumes trips is a list of trip tuples containing strings."""
