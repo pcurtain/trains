@@ -1,12 +1,9 @@
-"""Railway module, to contain each of the obvious abstractions.  In more 
-   formal terms, I'd be breaking each class into it's matching module. 
-   Trying to keep it simple for now.
-
+"""Railway module, to contain each of the obvious abstractions.  
    To run the ThoughtWorks problems, I provided two options:
    1. To get the 'expected outputs', run:
-      `python problems.py`
+      ```python trainsproblem.py```
    2. To read and validate using unit tests, run:
-      `python -m unittest trainstest`
+      ```python -m unittest -v trainstest```
    """
 
 import sys
