@@ -26,7 +26,8 @@ class Station:
         return self.distances_by_station.keys()
     
     def connection_names(self):
-        return [station.name for station in self.connections()]
+        names = [station.name for station in self.connections()]
+        return names
 
     def distance_to(self, connection):
         try:
@@ -36,7 +37,7 @@ class Station:
 
     def __str__(self):
         return ('<' + str(self.name) + 
-                ' distances_by_station: ' + 
+                ': ' + 
                 str([x.name for x in self.distances_by_station]) +
                 '>')
 
@@ -78,27 +79,26 @@ class Trip:
         """return a list of pairs made of the steps of this trip."""
         segments = pairwise(self.stops)     # bring that code inline maybe
         for start, target in segments:
-            print "``````````````"
-            print "segment: ", start.name, target.name
-            print "start:   ", start, " target: ", target
-            print "start.connections: ", start.connection_names()
-            print "start.connections: ", start.connections()
-            print "target: ", target.station
             if target.name in start.connection_names():
                 if start != target:
                     start.nextstop = target
                     target.prevstop = start
                     yield (start, target)
             else:
-
-                raise NoSuchRoute("No such route when checking trip.segments")
-            print "``````````````"
+                raise NoSuchRoute()
 
     def distance(self):
         distances=[]
         for start, target in self.segments():
-            distances.append(start.distance_to(target))
+                distances.append(start.station.distance_to(target.station))
         return sum(distances) 
+
+    def stops_count(self):
+        return len(self.stops)
+
+    def candidate_stop_names(self, non_visited_only=False):
+        """Given the last stop in this trip, return candidate stop names."""
+        return self.stops[-1].connection_names()
 
 class RailSystem:
     def __init__(self):
@@ -130,44 +130,39 @@ class RailSystem:
     def stations_for_names(self, names=[]):
         return [self.stations_by_name[name] for name in names]
 
-    def distance_for_trip(self, stopnames=[]):
-        # print "stopnames: ", stopnames
+    def trip_for_stopnames(self, stopnames=[]):
         matching_stations = self.stations_for_names(stopnames)
-        # print "stations:  ", matching_stations
+        return Trip(matching_stations)
 
-        trip = Trip(matching_stations)
+    def distance_for_trip(self, stopnames=[]):
+        trip = self.trip_for_stopnames(stopnames)
         return trip.distance()
 
-    def _find_trips(self, trip, max_stops=0):
-        # import pdb; pdb.set_trace()
-        print trip,
-        if max_stops > 0:
-            start = self.get_station(trip[0])
-            target = self.get_station(trip[-1])
-            print "start: ", start, " target: ", target
-            if target in start.connections():
-                if target != start:
-                    yield trip
-            for x in target.connection_names():
-                for p in self._find_trips(trip + [x], max_stops - 1):
+    def _find_all_trips(self, tripnames, max_depth=0, max_stops=sys.maxint, max_distance=sys.maxint):
+        if max_depth > 0:
+            yield tripnames
+
+            trip = self.trip_for_stopnames(tripnames)
+            for x in trip.candidate_stop_names():
+                for p in self._find_all_trips(tripnames + [x], max_depth - 1):
+                    # newtrip = self.trip_for_stopnames(p)
+                    # if (newtrip.distance() <= max_distance) and (newtrip.stops_count()+1 <= max_stops):
                     yield p
 
-    def find_trips_from(self, name, max_stops):
-        return self._find_trips([name], max_stops)
+    def find_trips_from(self, name, max_depth=30, max_stops=30, max_distance=50):
+        print "find_trips_from(%s, %d, %d, %d)" % (name, max_depth, max_stops, max_distance) 
+        return self._find_all_trips([name], max_depth, max_stops, max_distance)
 
-    def find_trips_from_to(self, startname, targetname, 
-                                 max_stops=30, 
-                                 max_distance=50):
-        all_trips = self._find_trips([startname, targetname], max_stops)
-        matching_trips = []
-        for trip in all_trips:
-            distance = self.distance_for_trip(trip)
-            stops = len( list(trip) )
-            print trip, distance, stops
-            if trip[-1] == targetname:
-                if distance <= max_distance and stops <= max_stops:
-                    matching_trips.append(trip)
-        return matching_trips
+    def find_trips_from_to(self, startname, targetname, max_depth=30, max_stops=30, max_distance=50):
+        print "find_trips_from_to(%s, %s, %d, %d, %d)" % (startname, targetname,max_depth, max_stops, max_distance) 
+        # xall_trips = self.find_trips_from(startname, max_depth, max_stops, max_distance)
+        xall_trips = self._find_all_trips([startname], max_depth, max_stops, max_distance)
+        return xall_trips
+        # matching_trips = []
+        # for tripnames in all_trips:
+        #     if tripnames[-1] == targetname:
+        #         matching_trips.append(self.trip_for_stopnames(tripnames))
+        # return matching_trips
 
     def trips_with_distance(self, trips):
         """Assumes trips is a list of trip tuples containing strings."""
@@ -179,8 +174,12 @@ class RailSystem:
         return distance_trips
 
     def trips_with_stops(self, startname, targetname, max_stops=4):
-        all_trips = self.find_trips_from_to(self, [startname, targetname], max_stops)
-        return all_trips
+        all_trips = self.find_trips_from_to(startname, targetname, max_stops=30)
+        matching_trips = []
+        for t in all_trips:
+            if len(t) == max_stops+1:
+                matching_trips.append(t)
+        return matching_trips
         
     def trips_ordered_by_distance(self, trips):
         trips_dict = self.trips_with_distance(trips)
@@ -254,13 +253,19 @@ def print_trip_distances(railway, trips=[]):
         print "Output #%d: " % (trips.index(trip)+1),
         try:
             distance = railway.distance_for_trip(trip)
-        except NoSuchStation, NoSuchRoute:
+        except NoSuchStation:
+            print "Surprise!"
+        except NoSuchRoute:
             print "NO SUCH ROUTE"
 
         if distance:
             # print "Distance for %s : %d" % (str(trip), distance)
             print "%d" % (distance)
         distance = 0
+
+def print_trip_stops(railway):
+    trips = railway.trips_with_stops('A', 'C', 4)
+    print trips
 
 def provided_example():
     railway = example_railsystem()
@@ -278,6 +283,7 @@ if __name__ == '__main__':
     print railway
     trips = example_trips()
     print_trip_distances(railway, trips)
+    print_trip_stops(railway)
     print "Output #6"
     print "Output #7"
 
