@@ -184,8 +184,8 @@ class RailSystem:
         return distance_trips
 
     def trips_with_stops(self, startname, targetname, stops):
-        trips = self.find_trips_from_to(startname, targetname, max_depth=10, max_stops=stops)
-        # matching_trips = [trip for trip in trips if trip.stops_count() == stops+1]
+        trips = self.find_trips_from_to(startname, targetname, max_depth=15, max_stops=stops*2)
+        # Odd, but the prev line doesn't get a full set of data to try unless max_stops is higher
         matching_trips = []
         for trip in trips:
             if trip.stops_count() == stops:
