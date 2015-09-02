@@ -3,7 +3,7 @@
    Trying to keep it simple for now.
    """
 
-import sys, os
+import sys
 from itertools import tee, izip
 
 class NoSuchRoute(Exception):
@@ -36,8 +36,7 @@ class Station:
             raise NoSuchStation("No Such Route")
 
     def __str__(self):
-        return ('<' + str(self.name) + 
-                ': ' + 
+        return ('<Station: ' + str(self.name) + ': ' + 
                 str([x.name for x in self.distances_by_station]) +
                 '>')
 
@@ -94,7 +93,10 @@ class Trip:
         return sum(distances) 
 
     def stops_count(self):
-        return len(self.stops)
+        """ThoughtWorks example lists a route of C-E-B-C as having three stops.
+        Basically it excludes the starting point as a stop for our purposes.
+        """
+        return len(self.stops)-1
 
     def candidate_stop_names(self, non_visited_only=False):
         """Given the last stop in this trip, return candidate stop names."""
@@ -156,22 +158,19 @@ class RailSystem:
             trip = self.trip_for_stopnames(tripnames)
             for x in trip.candidate_stop_names():
                 for p in self._find_all_trips(tripnames + [x], max_depth - 1):
-                    newtrip = self.trip_for_stopnames(p)
-                    if (newtrip.distance() <= max_distance) and (newtrip.stops_count()+1 <= max_stops):
-                        yield p
+                    if len(p) <= max_stops: # dump out faster if we're over the max_stops
+                        newtrip = self.trip_for_stopnames(p)
+                        if newtrip.distance() <= max_distance:
+                            yield p
 
     def find_trips_from(self, name, max_depth=10, max_stops=30, max_distance=50):
         all_trip_names = self._find_all_trips([name], max_depth, max_stops, max_distance)
-        # return self.trip_for_stopnames(all_trip_names)
         return all_trip_names
 
-    def find_trips_from_to(self, startname, targetname, max_depth=30, max_stops=30, max_distance=50):
-        print "find_trips_from_to(%s, %s, %d, %d, %d)" % (startname, targetname,max_depth, max_stops, max_distance) 
+    def find_trips_from_to(self, startname, targetname, max_depth=10, max_stops=30, max_distance=50):
         all_trip_names = self.find_trips_from(startname, max_depth, max_stops, max_distance)
         matching_trips = []
         for tripnames in all_trip_names:
-            # if tripnames[-1] == targetname:
-            #     matching_trips.append(tripnames)
             trip = self.trip_for_stopnames(tripnames)
             if trip.stops[-1].name == targetname:
                 matching_trips.append(trip)
@@ -179,21 +178,20 @@ class RailSystem:
 
     def trips_with_distance(self, trips):
         """Assumes trips is a list of trip tuples containing strings."""
-        # TODO: Consider making Trip and Trips (or Itineraries) classes
         distance_trips = { }
         for t in trips:
-            distance = self.distance_for_trip(t)
-            distance_trips[distance] = t
+            distance_trips[t.distance()] = t
         return distance_trips
 
-    def trips_with_stops(self, startname, targetname, max_stops=4):
-        all_trips = self.find_trips_from_to(startname, targetname, max_stops=30)
+    def trips_with_stops(self, startname, targetname, stops):
+        trips = self.find_trips_from_to(startname, targetname, max_depth=10, max_stops=stops)
+        # matching_trips = [trip for trip in trips if trip.stops_count() == stops+1]
         matching_trips = []
-        for t in all_trips:
-            if len(t) == max_stops+1:
-                matching_trips.append(t)
+        for trip in trips:
+            if trip.stops_count() == stops:
+                matching_trips.append(trip)
         return matching_trips
-        
+
     def trips_ordered_by_distance(self, trips):
         trips_dict = self.trips_with_distance(trips)
         ordered_distance = sorted(trips_dict.keys())
@@ -202,29 +200,13 @@ class RailSystem:
             yield ( distance, trips_dict[distance] )
 
     def shortest_from_to(self, startname, targetname):
-        import pdb; pdb.set_trace()
         all_trips = self.find_trips_from_to(startname, targetname, 15)
         ordered_trips = list( self.trips_ordered_by_distance(all_trips) )
         return ordered_trips[0]
 
-    def station_pairs_for_trip(self, names=[]):
-        namepairs = pairwise(names)
-        for startname, targetname in namepairs:
-            try:
-                start = self.get_station(startname)
-                target = self.get_station(targetname)
-            except:
-                raise NoSuchStation()
-            if target in start.connections():
-                yield (start, target)
-            else:
-                pass
-
     def __str__(self):
-        s = "<"
-        for station in self.stations_by_name.values():
-            s = s + str(station) + ", "
-        return s+">"
+        station_strings = ", ".join([str(station) for station in self.stations_by_name.values()])
+        return str("<Railway: " + station_strings + ">")
 
 def pairwise(iterable):
     a, b = tee(iterable)
@@ -279,16 +261,6 @@ def print_trip_distances(railway, trips=[]):
 def print_trip_stops(railway):
     trips = railway.trips_with_stops('A', 'C', 4)
     print trips
-
-def provided_example():
-    railway = example_railsystem()
-
-    print 'RailSystem data:'
-    for s in railway:
-        for t in s.connections():
-            sname = s.name
-            tname = t.name
-            print '( %s , %s, %3d)'  % ( sname, tname, s.distance_to(t))
 
     
 if __name__ == '__main__':
