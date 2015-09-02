@@ -76,7 +76,9 @@ class Trip:
 
     def segments(self):
         """return a list of pairs made of the steps of this trip."""
-        segments = pairwise(self.stops)     # bring that code inline maybe
+        starts, targets = tee(self.stops)
+        next(targets, None)
+        segments = izip(starts, targets)
         for start, target in segments:
             if target.name in start.connection_names():
                 if start != target:
@@ -137,14 +139,8 @@ class RailSystem:
             self.add_station(to)
         self.stations_by_name[frm].add_connection(self.stations_by_name[to], distance)
 
-    def get_station_names(self):
-        return self.stations_by_name.keys()
-
-    def stations_for_names(self, names=[]):
-        return [self.stations_by_name[name] for name in names]
-
     def trip_for_stopnames(self, stopnames=[]):
-        matching_stations = self.stations_for_names(stopnames)
+        matching_stations = [self.stations_by_name[name] for name in stopnames]
         return Trip(matching_stations)
 
     def distance_for_trip(self, stopnames=[]):
@@ -207,11 +203,6 @@ class RailSystem:
     def __str__(self):
         station_strings = ", ".join([str(station) for station in self.stations_by_name.values()])
         return str("<Railway: " + station_strings + ">")
-
-def pairwise(iterable):
-    a, b = tee(iterable)
-    next(b, None)
-    return izip(a, b)
 
 def example_railsystem():
     railway = RailSystem()
